@@ -174,6 +174,7 @@ async function doStart() {
       }
       if (!success || !data) continue;
 
+      let filteredCount = 0;
       for (const v of data.aweme_list) {
         const vid = String(v.aweme_id);
         if (seen.has(vid)) continue;
@@ -183,7 +184,7 @@ async function doStart() {
         // 日期筛选
         if (ct > 0) {
           const cdate = new Date(ct * 1000);
-          if (cdate < s || cdate > e) continue;
+          if (cdate < s || cdate > e) { filteredCount++; continue; }
         }
         allVideos.push({
           id: vid,
@@ -195,6 +196,9 @@ async function doStart() {
           author: acct.name,
           secUid: acct.secUid,
         });
+      }
+      if (filteredCount > 0) {
+        toast(acct.name + ': ' + filteredCount + ' 个视频不在日期范围内已过滤', 'info');
       }
       done++;
     } catch(e) {
