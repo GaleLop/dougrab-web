@@ -192,13 +192,16 @@ class ChromeManager:
         except Exception:
             return []
 
-    async def safe_evaluate(self, script: str, timeout: int = 30000):
+    async def safe_evaluate(self, script: str, timeout: float = 30.0):
         """安全执行 page.evaluate，页面崩溃时自动恢复并重试一次"""
         page = await self.get_douyin_page()
         if not page:
             raise Exception("Chrome 未就绪")
         try:
-            return await page.evaluate(script, timeout=timeout)
+            return await asyncio.wait_for(page.evaluate(script), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning("page.evaluate timed out after %.0fs", timeout)
+            raise Exception(f"page.evaluate 超时 ({timeout}s)")
         except Exception as e:
             err_msg = str(e).lower()
             if "crash" in err_msg or "target closed" in err_msg or "target crashed" in err_msg:
@@ -209,7 +212,7 @@ class ChromeManager:
                 page = await self.get_douyin_page()
                 if not page:
                     raise Exception("Chrome 崩溃后恢复失败")
-                return await page.evaluate(script, timeout=timeout)
+                return await asyncio.wait_for(page.evaluate(script), timeout=timeout)
             raise
 
     async def get_status(self) -> dict:
