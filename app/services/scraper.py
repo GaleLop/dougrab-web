@@ -211,17 +211,23 @@ async def refresh_video_url(aweme_id: str) -> str:
                 'https://www.douyin.com/aweme/v1/web/aweme/detail/?aweme_id={aweme_id}&aid=6383',
                 {{credentials: 'include'}}
             );
+            if (!resp.ok) return 'HTTP_ERROR:' + resp.status;
             const data = await resp.json();
+            if (data.status_code && data.status_code !== 0) return 'API_ERROR:' + data.status_code + ':' + (data.status_msg || '');
             const aweme = data.aweme_detail || {{}};
+            if (!aweme.aweme_id) return 'NO_DETAIL';
             const video = aweme.video || {{}};
             const urls = (video.play_addr || {{}}).url_list || [];
-            return urls[0] || '';
+            return urls[0] || 'NO_URL';
         }} catch(e) {{
-            return '';
+            return 'FETCH_ERROR:' + (e.message || e);
         }}
     }}
     '''
-    url = await chrome_manager.safe_evaluate(script)
-    if not url:
+    result = await chrome_manager.safe_evaluate(script)
+    if not result:
         raise Exception("无法获取视频 CDN 地址")
-    return url
+    # 检查是否返回了错误信息
+    if result.startswith(('HTTP_ERROR:', 'API_ERROR:', 'NO_DETAIL', 'NO_URL', 'FETCH_ERROR:')):
+        raise Exception(f"获取CDN失败: {result}")
+    return result
