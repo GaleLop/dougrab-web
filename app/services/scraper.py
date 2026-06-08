@@ -212,7 +212,10 @@ async def refresh_video_url(aweme_id: str) -> str:
                 {{credentials: 'include'}}
             );
             if (!resp.ok) return 'HTTP_ERROR:' + resp.status;
-            const data = await resp.json();
+            const text = await resp.text();
+            if (!text) return 'EMPTY_RESPONSE';
+            let data;
+            try {{ data = JSON.parse(text); }} catch(pe) {{ return 'INVALID_JSON:' + text.substring(0, 100); }}
             if (data.status_code && data.status_code !== 0) return 'API_ERROR:' + data.status_code + ':' + (data.status_msg || '');
             const aweme = data.aweme_detail || {{}};
             if (!aweme.aweme_id) return 'NO_DETAIL';
@@ -227,7 +230,15 @@ async def refresh_video_url(aweme_id: str) -> str:
     result = await chrome_manager.safe_evaluate(script)
     if not result:
         raise Exception("无法获取视频 CDN 地址")
+    # 临时性失败自动重试一次
+    _RETRYABLE = ('EMPTY_RESPONSE', 'INVALID_JSON:', 'FETCH_ERROR:')
+    if any(result.startswith(p) for p in _RETRYABLE):
+        logger.warning("refresh_video_url transient error for %s: %s — retrying", aweme_id, result)
+        await asyncio.sleep(2)
+        result = await chrome_manager.safe_evaluate(script)
+        if not result:
+            raise Exception("无法获取视频 CDN 地址")
     # 检查是否返回了错误信息
-    if result.startswith(('HTTP_ERROR:', 'API_ERROR:', 'NO_DETAIL', 'NO_URL', 'FETCH_ERROR:')):
+    if result.startswith(('HTTP_ERROR:', 'API_ERROR:', 'NO_DETAIL', 'NO_URL', 'FETCH_ERROR:', 'EMPTY_RESPONSE', 'INVALID_JSON:')):
         raise Exception(f"获取CDN失败: {result}")
     return result
