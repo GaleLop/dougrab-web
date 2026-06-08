@@ -75,7 +75,7 @@ async def fetch_videos(sec_uid: str) -> dict:
     }
     '''
     await asyncio.sleep(random.uniform(2, 4))
-    extracted = await page.evaluate(dom_script)
+    extracted = await chrome_manager.safe_evaluate(dom_script)
     dom_videos = extracted.get("videos", [])
     source = extracted.get("source", "none")
 
@@ -109,7 +109,11 @@ async def fetch_videos(sec_uid: str) -> dict:
                 }}
             }}
             '''
-            raw = await page.evaluate(fetch_script)
+            try:
+                raw = await chrome_manager.safe_evaluate(fetch_script)
+            except Exception as e:
+                logger.warning("safe_evaluate failed (retry %d): %s", retry, e)
+                raw = ''
             if raw:
                 try:
                     api_data = json.loads(raw)
@@ -200,10 +204,6 @@ async def refresh_video_url(aweme_id: str) -> str:
     实时从抖音页面获取视频最新 CDN 地址
     等价于原 main.py 的 _refresh_video_url()
     """
-    page = await chrome_manager.get_douyin_page()
-    if not page:
-        raise Exception("Chrome 未就绪")
-
     script = f'''
     async () => {{
         try {{
@@ -221,7 +221,7 @@ async def refresh_video_url(aweme_id: str) -> str:
         }}
     }}
     '''
-    url = await page.evaluate(script)
+    url = await chrome_manager.safe_evaluate(script)
     if not url:
         raise Exception("无法获取视频 CDN 地址")
     return url

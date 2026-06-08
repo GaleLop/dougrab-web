@@ -62,7 +62,8 @@ class ChromeManager:
     async def start(self):
         """启动 Playwright + Chromium"""
         async with self._lock:
-            if self.is_ready:
+            # 必须 browser + context 都正常才算就绪
+            if self.is_ready and self._context is not None:
                 return
             # 先清理上次残留的资源（防止重试时泄漏）
             await self._cleanup_unlocked()
@@ -114,25 +115,42 @@ class ChromeManager:
         await self.start()
 
     async def open_douyin(self) -> bool:
-        """打开抖音页面"""
-        if not self.is_ready:
-            await self.start()
-        async with self._lock:
-            try:
-                if self._douyin_page and not self._douyin_page.is_closed():
-                    await self._douyin_page.bring_to_front()
+        """打开抖音页面，崩溃时自动重启并重试一次"""
+        for attempt in range(2):
+            if not self.is_ready or self._context is None:
+                await self.start()
+            async with self._lock:
+                try:
+                    if self._douyin_page and not self._douyin_page.is_closed():
+                        try:
+                            await self._douyin_page.bring_to_front()
+                            return True
+                        except Exception:
+                            logger.warning("Existing page crashed, recreating...")
+                            self._douyin_page = None
+                    self._douyin_page = await self._context.new_page()
+                    await self._douyin_page.goto(
+                        "https://www.douyin.com/",
+                        wait_until="domcontentloaded",
+                        timeout=30000,
+                    )
+                    logger.info("Douyin page opened")
                     return True
-                self._douyin_page = await self._context.new_page()
-                await self._douyin_page.goto(
-                    "https://www.douyin.com/",
-                    wait_until="domcontentloaded",
-                    timeout=30000,
-                )
-                logger.info("Douyin page opened")
-                return True
-            except Exception as e:
-                logger.error("Failed to open douyin: %s", e)
-                return False
+                except Exception as e:
+                    logger.error("Failed to open douyin (attempt %d): %s", attempt + 1, e)
+                    # context/browser 可能崩了，彻底清理
+                    self._douyin_page = None
+                    try:
+                        await self._cleanup_unlocked()
+                    except Exception:
+                        pass
+                    self._browser = None
+                    self._context = None
+                    self._playwright = None
+                    if attempt == 0:
+                        logger.info("Restarting Chrome for retry...")
+                        continue
+        return False
 
     async def check_logged_in(self) -> bool:
         """检查抖音登录状态"""
@@ -173,6 +191,26 @@ class ChromeManager:
             return await self._context.cookies()
         except Exception:
             return []
+
+    async def safe_evaluate(self, script: str, timeout: int = 30000):
+        """安全执行 page.evaluate，页面崩溃时自动恢复并重试一次"""
+        page = await self.get_douyin_page()
+        if not page:
+            raise Exception("Chrome 未就绪")
+        try:
+            return await page.evaluate(script, timeout=timeout)
+        except Exception as e:
+            err_msg = str(e).lower()
+            if "crash" in err_msg or "target closed" in err_msg or "target crashed" in err_msg:
+                logger.warning("Page crashed, recovering: %s", e)
+                # 重置页面状态，重新打开
+                self._douyin_page = None
+                await self.restart()
+                page = await self.get_douyin_page()
+                if not page:
+                    raise Exception("Chrome 崩溃后恢复失败")
+                return await page.evaluate(script, timeout=timeout)
+            raise
 
     async def get_status(self) -> dict:
         """获取 Chrome 和抖音状态"""

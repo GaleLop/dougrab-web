@@ -67,7 +67,11 @@ async def download_batch(aweme_ids: list[str]) -> dict:
     results = []
     for idx, aid in enumerate(aweme_ids):
         logger.info("Downloading %d/%d: %s", idx + 1, len(aweme_ids), aid)
-        result = await download_video(aid)
+        try:
+            result = await download_video(aid)
+        except Exception as e:
+            logger.error("Download crashed for %s: %s", aid, e)
+            result = {"aweme_id": aid, "status": "fail", "error": str(e)}
         results.append(result)
         if idx < len(aweme_ids) - 1:
             await asyncio.sleep(1.5)
