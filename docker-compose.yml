@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  dougrab-web:
+    build: .
+    container_name: dougrab-web
+    ports:
+      - "8765:8765"
+    environment:
+      - CHROME_HEADLESS=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8765
+    volumes:
+      - ./downloads:/app/downloads
+    restart: unless-stopped
+    # Playwright 需要较大 /dev/shm
+    shm_size: "2g"

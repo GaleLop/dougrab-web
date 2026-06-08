@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DouGrab Web · 抖音视频批量下载</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="logo">Dou<span class="dot">.</span>Grab</div>
+    <div class="subtitle">抖音多账号视频批量下载 · Web 云端版</div>
+  </div>
+
+  <!-- Tab 切换 -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('fetch')" id="tabFetch">多账号抓取</button>
+    <button class="tab-btn" onclick="switchTab('batch')" id="tabBatch">链接批量下载</button>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-dot offline" id="statusDot"></div>
+    <span id="statusText">正在连接...</span>
+    <button class="btn btn-outline" id="btnOpenDouyin" style="display:none" onclick="openDouyinLogin()">打开抖音登录</button>
+  </div>
+
+  <!-- ===== 链接批量下载面板 ===== -->
+  <div class="input-section" id="batchPanel" style="display:none">
+    <div class="input-group">
+      <label>粘贴视频链接（每行一个，可批量）</label>
+      <textarea id="videoLinks" placeholder="支持以下格式：&#10;https://www.douyin.com/video/7644151608409967907&#10;https://v.douyin.com/xxxxx/&#10;https://www.douyin.com/aweme/v1/play/?video_id=7644151608409967907&#10;直接粘贴 aweme_id: 7644151608409967907&#10;# 行首 # 开头可注释"></textarea>
+      <div class="input-hint">支持抖音视频链接、短链接、播放地址，或直接粘贴视频ID。批量下载将保存到服务器 downloads 目录</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnParse" onclick="parseLinks()">解析链接</button>
+      <button class="btn btn-success" id="btnDownBatch" onclick="downloadBatch()" disabled>批量下载</button>
+      <button class="btn btn-outline" onclick="clearBatchList()">清空列表</button>
+    </div>
+    <div class="batch-progress" id="batchProgress" style="display:none">
+      <div class="progress-bar"><div class="bar-fill" id="batchBarFill"></div></div>
+      <div id="batchProgressText"></div>
+    </div>
+    <div class="batch-results" id="batchResults"></div>
+  </div>
+
+  <!-- ===== 抓取面板 ===== -->
+  <div id="fetchPanel">
+    <div class="input-group">
+      <label>抖音账号链接（一行一个，可备注名称）</label>
+      <textarea id="accountUrls" placeholder="格式：链接 或 链接,备注名称&#10;https://www.douyin.com/user/MS4wLjAB... 旗舰店&#10;https://www.douyin.com/user/MS4wLjAB... 品牌号"></textarea>
+      <div class="input-hint">每行一个链接，逗号后可写备注名称</div>
+    </div>
+    <div class="date-row">
+      <div class="date-group">
+        <label>日期范围：</label>
+        <input type="date" id="dateStart">
+        <span class="date-separator">—</span>
+        <input type="date" id="dateEnd">
+      </div>
+      <div class="date-presets">
+        <button class="btn btn-sm btn-outline" onclick="setDatePreset('today')">今天</button>
+        <button class="btn btn-sm btn-outline" onclick="setDatePreset('yesterday')">昨天</button>
+        <button class="btn btn-sm btn-outline" onclick="setDatePreset('3days')">近3天</button>
+        <button class="btn btn-sm btn-outline" onclick="setDatePreset('week')">近7天</button>
+      </div>
+      <span class="date-warn" id="dateWarn"></span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnStart" onclick="doStart()">开始抓取</button>
+      <button class="btn btn-outline" onclick="deselectAll()">取消选中</button>
+    </div>
+  </div>
+
+  <div class="progress-bar" id="progressBar"><div class="bar-fill"></div></div>
+  <div id="progressText"></div>
+
+  <div class="toolbar" id="toolbar">
+    <div class="toolbar-left">
+      <button class="btn btn-outline" onclick="selectAll()">全选</button>
+      <button class="btn btn-outline" onclick="deselectAll()">取消选中</button>
+      <span>已选 <span id="selCount">0</span> 个</span>
+    </div>
+    <div class="toolbar-right">
+      <select id="accountFilter" onchange="filterByAccount()"><option value="all">全部</option></select>
+      <button class="btn btn-success" onclick="downloadSelected()">批量下载</button>
+    </div>
+  </div>
+
+  <div id="videoGrid"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="/static/app.js"></script>
+<script>init();</script>
+</body>
+</html>
