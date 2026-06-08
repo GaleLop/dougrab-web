@@ -52,7 +52,14 @@ async function pollStatus() {
     const text = document.getElementById('statusText');
     const btn = document.getElementById('btnOpenDouyin');
     let cls = 'offline', msg = '';
-    if (!r.cdp_ready) { msg = 'Chrome 未就绪 — 正在启动...'; cls = 'offline'; if(btn)btn.style.display='none'; }
+    if (!r.cdp_ready) {
+      if (r.retry_count > 0) {
+        msg = 'Chrome 启动失败 — 后台重试中 (第' + r.retry_count + '次)...';
+      } else {
+        msg = 'Chrome 未就绪 — 正在启动...';
+      }
+      cls = 'offline'; if(btn)btn.style.display='none';
+    }
     else if (!r.logged_in) {
       if (activeTab === 'batch') {
         // 批量下载模式：不需要登录，只需要抖音页面用于刷新CDN

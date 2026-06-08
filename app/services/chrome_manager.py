@@ -21,6 +21,8 @@ class ChromeManager:
         self._context: Optional[BrowserContext] = None
         self._douyin_page: Optional[Page] = None
         self._lock = asyncio.Lock()
+        self._start_error: Optional[str] = None
+        self._retry_count: int = 0
 
     @property
     def is_ready(self) -> bool:
@@ -30,11 +32,40 @@ class ChromeManager:
     def has_douyin_page(self) -> bool:
         return self._douyin_page is not None and not self._douyin_page.is_closed()
 
+    async def _cleanup_unlocked(self):
+        """清理资源（调用时已持有 _lock 或在 start 异常路径中）"""
+        try:
+            if self._douyin_page and not self._douyin_page.is_closed():
+                await self._douyin_page.close()
+        except Exception:
+            pass
+        try:
+            if self._context:
+                await self._context.close()
+        except Exception:
+            pass
+        try:
+            if self._browser:
+                await self._browser.close()
+        except Exception:
+            pass
+        try:
+            if self._playwright:
+                await self._playwright.stop()
+        except Exception:
+            pass
+        self._douyin_page = None
+        self._context = None
+        self._browser = None
+        self._playwright = None
+
     async def start(self):
         """启动 Playwright + Chromium"""
         async with self._lock:
             if self.is_ready:
                 return
+            # 先清理上次残留的资源（防止重试时泄漏）
+            await self._cleanup_unlocked()
             try:
                 self._playwright = await async_playwright().start()
                 self._browser = await self._playwright.chromium.launch(
@@ -45,7 +76,6 @@ class ChromeManager:
                         "--no-sandbox",
                         "--disable-dev-shm-usage",
                         "--disable-gpu",
-                        "--single-process",
                     ],
                 )
                 self._context = await self._browser.new_context(
@@ -61,26 +91,21 @@ class ChromeManager:
                 await self._context.add_init_script("""
                     Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
                 """)
+                self._start_error = None
+                self._retry_count = 0
                 logger.info("Chrome started (headless=%s)", CHROME_HEADLESS)
             except Exception as e:
+                # 启动失败时清理已分配的资源
+                await self._cleanup_unlocked()
+                self._start_error = str(e)
+                self._retry_count += 1
                 logger.error("Failed to start Chrome: %s", e)
                 raise
 
     async def stop(self):
         """关闭所有 Chrome 实例"""
         async with self._lock:
-            if self._douyin_page and not self._douyin_page.is_closed():
-                await self._douyin_page.close()
-            if self._context:
-                await self._context.close()
-            if self._browser:
-                await self._browser.close()
-            if self._playwright:
-                await self._playwright.stop()
-            self._douyin_page = None
-            self._context = None
-            self._browser = None
-            self._playwright = None
+            await self._cleanup_unlocked()
             logger.info("Chrome stopped")
 
     async def restart(self):
@@ -90,9 +115,9 @@ class ChromeManager:
 
     async def open_douyin(self) -> bool:
         """打开抖音页面"""
+        if not self.is_ready:
+            await self.start()
         async with self._lock:
-            if not self.is_ready:
-                await self.start()
             try:
                 if self._douyin_page and not self._douyin_page.is_closed():
                     await self._douyin_page.bring_to_front()
@@ -160,6 +185,8 @@ class ChromeManager:
             "chrome_running": self.is_ready,
             "logged_in": logged_in,
             "has_douyin": has_douyin,
+            "start_error": self._start_error,
+            "retry_count": self._retry_count,
         }
 
 
