@@ -31,8 +31,8 @@ async def fetch_videos(sec_uid: str) -> dict:
     if not page:
         raise Exception("Chrome 未就绪，请先打开抖音页面")
 
-    # 模拟人类随机延迟
-    await asyncio.sleep(random.uniform(0.5, 2.0))
+    # 模拟人类随机延迟（云端环境缩短延迟）
+    await asyncio.sleep(random.uniform(0.3, 0.8))
 
     # Step 1: 尝试从 SSR/DOM 获取初始数据
     dom_script = '''
@@ -74,13 +74,13 @@ async def fetch_videos(sec_uid: str) -> dict:
         return r;
     }
     '''
-    await asyncio.sleep(random.uniform(2, 4))
+    await asyncio.sleep(random.uniform(0.5, 1.5))
     extracted = await chrome_manager.safe_evaluate(dom_script)
     dom_videos = extracted.get("videos", [])
     source = extracted.get("source", "none")
 
     # Step 2: 通过 fetch API 翻页抓取所有视频
-    await asyncio.sleep(random.uniform(1.0, 2.5))
+    await asyncio.sleep(random.uniform(0.5, 1.0))
     all_videos = []
     max_cursor = 0
     has_more = True
@@ -89,12 +89,12 @@ async def fetch_videos(sec_uid: str) -> dict:
     while has_more and page_count < MAX_PAGES:
         page_count += 1
         if page_count > 1:
-            await asyncio.sleep(random.uniform(1.5, 3.0))
+            await asyncio.sleep(random.uniform(0.8, 1.5))
 
         api_data = None
         for retry in range(3):
             if retry > 0:
-                await asyncio.sleep(4)
+                await asyncio.sleep(2)
             fetch_script = f'''
             async () => {{
                 try {{
