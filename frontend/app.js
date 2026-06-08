@@ -20,7 +20,19 @@ function init() {
   setInterval(pollStatus, 5000);
 }
 
-function fmtDate(d) { return d.toISOString().split('T')[0]; }
+function fmtDate(d) {
+  // 使用本地时间格式化，避免 toISOString() 的 UTC 时区偏移
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+
+function parseLocalDate(str) {
+  // 解析 "YYYY-MM-DD" 为本地时间零点，避免 new Date(str) 按 UTC 解析
+  const parts = str.split('-');
+  return new Date(+parts[0], +parts[1] - 1, +parts[2]);
+}
 
 function setDatePreset(preset) {
   const today = new Date();
@@ -122,8 +134,8 @@ function parseAccounts() {
 // ===== 开始抓取 =====
 async function doStart() {
   validateDateRange();
-  const s = new Date(document.getElementById('dateStart').value);
-  const e = new Date(document.getElementById('dateEnd').value);
+  const s = parseLocalDate(document.getElementById('dateStart').value);
+  const e = parseLocalDate(document.getElementById('dateEnd').value);
   e.setHours(23, 59, 59, 999);
   state.dateStart = s;
   state.dateEnd = e;

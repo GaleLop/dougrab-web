@@ -30,7 +30,12 @@ async def download_video(aweme_id: str, cdn_url: str = "") -> dict:
     如果没有 cdn_url，先通过 refresh_video_url 获取
     """
     if not cdn_url:
-        cdn_url = await refresh_video_url(aweme_id)
+        try:
+            cdn_url = await refresh_video_url(aweme_id)
+        except Exception as e:
+            err_msg = f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
+            logger.error("refresh_video_url failed for %s: %s", aweme_id, err_msg)
+            return {"aweme_id": aweme_id, "status": "fail", "error": err_msg}
     if not cdn_url:
         return {"aweme_id": aweme_id, "status": "fail", "error": "无法获取CDN链接"}
 
