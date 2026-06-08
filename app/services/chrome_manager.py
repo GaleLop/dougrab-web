@@ -132,7 +132,7 @@ class ChromeManager:
                     await self._douyin_page.goto(
                         "https://www.douyin.com/",
                         wait_until="domcontentloaded",
-                        timeout=30000,
+                        timeout=1800000,
                     )
                     logger.info("Douyin page opened")
                     return True
@@ -192,7 +192,7 @@ class ChromeManager:
         except Exception:
             return []
 
-    async def safe_evaluate(self, script: str, timeout: float = 30.0):
+    async def safe_evaluate(self, script: str, timeout: float = 1800.0):
         """安全执行 page.evaluate，页面崩溃时自动恢复并重试一次"""
         page = await self.get_douyin_page()
         if not page:
