@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cookie 管理 · DouGrab</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; padding: 40px 20px; }
+.container { max-width: 640px; margin: 0 auto; }
+h1 { font-size: 20px; margin-bottom: 6px; }
+.subtitle { color: #888; font-size: 13px; margin-bottom: 32px; }
+.step { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+.step-title { font-size: 14px; font-weight: 600; color: #4a9eff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.step-num { background: #4a9eff; color: #000; font-size: 11px; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+.step-desc { color: #aaa; font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+.code-block { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #8b949e; overflow-x: auto; white-space: pre-wrap; word-break: break-all; cursor: pointer; position: relative; }
+.code-block:hover { border-color: #4a9eff; }
+.code-block .copy-hint { position: absolute; top: 6px; right: 10px; font-size: 11px; color: #555; }
+textarea { width: 100%; min-height: 120px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e0e0e0; font-family: monospace; font-size: 12px; padding: 12px; resize: vertical; }
+textarea:focus { outline: none; border-color: #4a9eff; }
+.btn-row { display: flex; gap: 10px; margin-top: 12px; }
+.btn { padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all .15s; }
+.btn-primary { background: #4a9eff; color: #000; }
+.btn-primary:hover { background: #3a8eef; }
+.btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
+.btn-outline { background: transparent; border: 1px solid #3a3a3a; color: #aaa; }
+.btn-outline:hover { border-color: #666; color: #fff; }
+.status { margin-top: 12px; padding: 10px 14px; border-radius: 6px; font-size: 13px; display: none; }
+.status.ok { display: block; background: #0d2818; border: 1px solid #1a5c2a; color: #4caf50; }
+.status.err { display: block; background: #2d1010; border: 1px solid #5c1a1a; color: #f44336; }
+.status.info { display: block; background: #0d1b2d; border: 1px solid #1a3a5c; color: #4a9eff; }
+.back { display: inline-flex; align-items: center; gap: 6px; color: #4a9eff; text-decoration: none; font-size: 13px; margin-bottom: 20px; }
+.back:hover { text-decoration: underline; }
+.status-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; padding: 10px 14px; background: #1a1a1a; border-radius: 6px; border: 1px solid #2a2a2a; font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.green { background: #4caf50; }
+.dot.yellow { background: #ff9800; }
+.dot.red { background: #f44336; }
+.dot.gray { background: #555; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a class="back" href="/">&larr; 返回主页</a>
+  <h1>Cookie 管理</h1>
+  <p class="subtitle">将本地浏览器的抖音登录态注入到云端服务器</p>
+
+  <div class="status-bar" id="serverStatus">
+    <div class="dot gray" id="sdot"></div>
+    <span id="stxt">检测中...</span>
+  </div>
+
+  <!-- Step 1: 导出 Cookie -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">1</span> 本地浏览器导出 Cookie</div>
+    <div class="step-desc">
+      在你的电脑上打开 <a href="https://www.douyin.com" target="_blank" style="color:#4a9eff">douyin.com</a> 并登录，
+      然后按 <kbd style="background:#333;padding:2px 6px;border-radius:3px;font-size:12px">F12</kbd> 打开开发者工具 → Console，粘贴执行以下代码：
+    </div>
+    <div class="code-block" id="snippet" onclick="copySnippet()">
+      <span class="copy-hint">点击复制</span>
+    </div>
+  </div>
+
+  <!-- Step 2: 粘贴 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">2</span> 粘贴 Cookie 到这里</div>
+    <div class="step-desc">把上一步复制的内容粘贴到下方：</div>
+    <textarea id="cookieInput" placeholder='粘贴到这里...&#10;&#10;格式示例：&#10;[{"name":"sessionid_ss","value":"xxx","domain":".douyin.com",...},...]'></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnInject" onclick="injectCookies()">注入到云端</button>
+      <button class="btn btn-outline" onclick="loadCurrentCookies()">查看当前 Cookie</button>
+    </div>
+    <div class="status" id="injectStatus"></div>
+  </div>
+
+  <!-- Step 3: 验证 -->
+  <div class="step">
+    <div class="step-title"><span class="step-num">3</span> 验证登录状态</div>
+    <div class="step-desc">注入后，点击下方按钮验证抖音是否登录成功：</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="checkLogin()">检查登录状态</button>
+    </div>
+    <div class="status" id="loginStatus"></div>
+  </div>
+</div>
+
+<script>
+const SNIPPET = `copy(JSON.stringify(document.cookie.split(';').map(c => {
+  const [n,...v] = c.trim().split('=');
+  return {name:n, value:v.join('='), domain:'.douyin.com', path:'/', secure:true, sameSite:'Lax'};
+}), null, 2))`;
+
+const snippetEl = document.getElementById('snippet');
+snippetEl.textContent = '// 复制下方代码，在抖音已登录页面的控制台粘贴执行\n' + SNIPPET;
+
+async function copySnippet() {
+  await navigator.clipboard.writeText(SNIPPET);
+  snippetEl.querySelector('.copy-hint').textContent = '已复制!';
+  setTimeout(() => snippetEl.querySelector('.copy-hint').textContent = '点击复制', 2000);
+}
+
+function showStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+async function injectCookies() {
+  const raw = document.getElementById('cookieInput').value.trim();
+  if (!raw) { showStatus('injectStatus', '请先粘贴 Cookie', 'err'); return; }
+
+  let cookies;
+  try {
+    cookies = JSON.parse(raw);
+    if (!Array.isArray(cookies)) throw new Error('not array');
+  } catch(e) {
+    showStatus('injectStatus', '格式错误：需要 JSON 数组。请确认是从控制台复制的完整内容', 'err');
+    return;
+  }
+
+  document.getElementById('btnInject').disabled = true;
+  document.getElementById('btnInject').textContent = '注入中...';
+  showStatus('injectStatus', '正在注入...', 'info');
+
+  try {
+    const resp = await fetch('/api/inject_cookies', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cookies: cookies}),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      showStatus('injectStatus', '注入成功! 请到下方验证登录状态', 'ok');
+    } else {
+      showStatus('injectStatus', '注入失败: ' + (data.error || JSON.stringify(data)), 'err');
+    }
+  } catch(e) {
+    showStatus('injectStatus', '请求失败: ' + e.message, 'err');
+  }
+  document.getElementById('btnInject').disabled = false;
+  document.getElementById('btnInject').textContent = '注入到云端';
+}
+
+async function loadCurrentCookies() {
+  showStatus('injectStatus', '加载中...', 'info');
+  try {
+    const resp = await fetch('/api/cookies');
+    const data = await resp.json();
+    const cookies = data.cookies || [];
+    if (cookies.length === 0) {
+      showStatus('injectStatus', '当前无 Cookie', 'info');
+    } else {
+      showStatus('injectStatus', '当前有 ' + cookies.length + ' 个 Cookie (domain: ' + [...new Set(cookies.map(c=>c.domain))].join(', ') + ')', 'info');
+    }
+  } catch(e) {
+    showStatus('injectStatus', '获取失败: ' + e.message, 'err');
+  }
+}
+
+async function checkLogin() {
+  showStatus('loginStatus', '检测中...', 'info');
+  try {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+    if (data.logged_in) {
+      showStatus('loginStatus', '已登录! 可以正常使用抓取功能', 'ok');
+    } else if (data.has_douyin) {
+      showStatus('loginStatus', '抖音页面已打开但未登录，可能 Cookie 已过期，请重新登录获取', 'err');
+    } else {
+      showStatus('loginStatus', 'Chrome 未就绪或抖音页面未打开，请稍等后重试', 'err');
+    }
+  } catch(e) {
+    showStatus('loginStatus', '检测失败: ' + e.message, 'err');
+  }
+}
+
+// 服务器状态检测
+async function checkServer() {
+  try {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+    const dot = document.getElementById('sdot');
+    const txt = document.getElementById('stxt');
+    if (data.cdp_ready) {
+      dot.className = 'dot green';
+      txt.textContent = '服务器就绪 (Chrome: ' + (data.chrome_running ? '运行中' : '未运行') + ')';
+    } else {
+      dot.className = 'dot yellow';
+      txt.textContent = 'Chrome 正在启动...';
+    }
+  } catch(e) {
+    document.getElementById('sdot').className = 'dot red';
+    document.getElementById('stxt').textContent = '无法连接服务器';
+  }
+}
+checkServer();
+setInterval(checkServer, 5000);
+</script>
+</body>
+</html>
